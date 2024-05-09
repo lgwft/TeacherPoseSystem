@@ -1,0 +1,10 @@
+<RCC>
+  <qresource prefix="images">
+    <file>images/teacherLogin.jpg</file>
+    <file>images/loginTeacher.jpg</file>
+  </qresource>
+  <qresource prefix="icons">
+    <file>icons/ic_zoom_out_2.png</file>
+    <file>icons/x.png</file>
+  </qresource>
+</RCC>
