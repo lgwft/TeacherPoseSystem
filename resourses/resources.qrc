@@ -1,5 +1,6 @@
 <RCC>
   <qresource prefix="images">
+    <file>images/bg.gif</file>
     <file>images/teacherLogin.jpg</file>
     <file>images/loginTeacher.jpg</file>
   </qresource>
