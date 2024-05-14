@@ -1,10 +1,17 @@
 <RCC>
   <qresource prefix="images">
-    <file>images/bg.gif</file>
+    <file>images/bg2.gif</file>
     <file>images/teacherLogin.jpg</file>
     <file>images/loginTeacher.jpg</file>
   </qresource>
   <qresource prefix="icons">
+    <file>icons/search.png</file>
+    <file>icons/main_关闭.png</file>
+    <file>icons/main_还原.png</file>
+    <file>icons/main_最大化.png</file>
+    <file>icons/main_最小化.png</file>
+    <file>icons/还原.png</file>
+    <file>icons/最大化.png</file>
     <file>icons/ic_zoom_out_2.png</file>
     <file>icons/x.png</file>
   </qresource>
