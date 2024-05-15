@@ -127,9 +127,10 @@ class MainWindow(QMainWindow):
         self.radio_button_group.addButton(self.ui.radioButton)
         self.radio_button_group.addButton(self.ui.radioButton_2)
         # 创建LBPH人脸识别器
-        self.face_recognizer = cv.face.LBPHFaceRecognizer_create()
+        # self.face_recognizer = cv.face.LBPHFaceRecognizer_create()
         # self.face_recognizer = cv.dnn.readNetFromONNX("resourses/dataset/faces/face_recognizer_fast.onnx")
-        # self.face_recognizer = cv.FaceRecognizerSF.create('resourses/dataset/faces/face_recognition_sface_2021dec_int8.onnx','')
+        #创建人脸识别器
+        self.face_recognizer = cv.FaceRecognizerSF.create('resourses/dataset/faces/face_recognition_sface_2021dec_int8.onnx','')
     def button_disable(self):
         self.ui.pushButton_19.setDisabled(True)
         self.ui.pushButton_20.setDisabled(True)
@@ -167,27 +168,24 @@ class MainWindow(QMainWindow):
 
     #人脸录入界面采集样本按钮
     def on_pushButton_20_pressed(self):
-        self.ui.lineEdit_6.setText('1')
-        self.ui.lineEdit_7.setText('李国威')
         id = self.ui.lineEdit_6.text()
         name = self.ui.lineEdit_7.text()
-
         if id is None or id.strip() == "":
             QMessageBox.warning(self, '编号错误', '编号不能为空')
             return
         if name is None or name.strip() == "":
             QMessageBox.warning(self, '姓名错误', '姓名不能为空')
             return
-        self.face_id_name = json.load(open("resourses/dataset/faces/id_name.json", "r"))
-        # if id in self.face_id_name:
-        #     QMessageBox.warning(self, '编号错误', '编号已存在')
-        #     return
-        self.face_id_name[id] = name
-        json.dump(self.face_id_name, open("resourses/dataset/faces/id_name.json", "w"),ensure_ascii=False)
+        with open("resourses/dataset/faces/id_name.json", "r") as file:
+            self.face_id_name = json.load(file)
+        if id not in self.face_id_name:
+            self.face_id_name[id] = [name,[]]
+        with open("resourses/dataset/faces/id_name.json", "w") as file:
+            json.dump(self.face_id_name, file, ensure_ascii=False)
         index = self.get_next_index(id)
-        self.ui.label_22.setText(str(index))
         filename = f"resourses/dataset/faces/{id}/face_{index}.png"
-        self.video_capture_thread.face_capture(filename)
+        self.video_capture_thread.face_capture(filename,id,name)
+        self.ui.label_22.setText(str(index))
 
     def get_next_index(self,id):
         folder_path = f"resourses/dataset/faces/{id}"
@@ -196,14 +194,15 @@ class MainWindow(QMainWindow):
             return 1
         # 获取目录下文件数量
         file_count = len(
-            [name for name in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, name))])
+            [name for name in os.listdir(folder_path)])
         return file_count + 1
 
     #人脸录入按钮
     def on_pushButton_21_pressed(self):
-        self.train_face_recognizer()
-
-    def train_face_recognizer(self):
+        # self.get_face_feature()
+        # self.video_capture_thread.get_name_feature()
+        self.video_capture_thread.reload_face_id_name()
+    def get_face_feature(self):
         data_dir = "resourses/dataset/faces"
         faces = []
         labels = []
@@ -219,16 +218,35 @@ class MainWindow(QMainWindow):
                 faces.append(image)
                 labels.append(int(label))
 
-        # # 创建LBPH人脸识别器
-        # face_recognizer = cv.face.LBPHFaceRecognizer_create()
+        self.face_recognizer.alignCrop(faces)
+        print('1')
 
-        # 训练分类器
-        self.face_recognizer.train(faces, np.array(labels))
-
-        # 保存分类器
-        self.face_recognizer.save("resourses/dataset/faces/face_recognizer.xml")
-
-        print("人脸分类器已训练并保存为 face_recognizer.xml")
+    # def train_face_recognizer(self):
+    #     data_dir = "resourses/dataset/faces"
+    #     faces = []
+    #     labels = []
+    #
+    #     for label in os.listdir(data_dir):
+    #         label_dir = os.path.join(data_dir, label)
+    #         if not os.path.isdir(label_dir):
+    #             continue
+    #
+    #         for image_name in os.listdir(label_dir):
+    #             image_path = os.path.join(label_dir, image_name)
+    #             image = cv.imread(image_path, cv.IMREAD_GRAYSCALE)
+    #             faces.append(image)
+    #             labels.append(int(label))
+    #
+    #     # # 创建LBPH人脸识别器
+    #     # face_recognizer = cv.face.LBPHFaceRecognizer_create()
+    #
+    #     # 训练分类器
+    #     self.face_recognizer.train(faces, np.array(labels))
+    #
+    #     # 保存分类器
+    #     self.face_recognizer.save("resourses/dataset/faces/face_recognizer.xml")
+    #
+    #     print("人脸分类器已训练并保存为 face_recognizer.xml")
 
     # 人脸录入界面上传图片按钮
     def on_pushButton_22_pressed(self):
@@ -321,20 +339,61 @@ class MainWindow(QMainWindow):
         face_data_dir = f"resourses/dataset/faces/{id}"
         if os.path.exists(face_data_dir):
             shutil.rmtree(face_data_dir)
-            face_id_name = json.load(open("resourses/dataset/faces/id_name.json", "r"))
-            del face_id_name[id]
-            json.dump(face_id_name, open("resourses/dataset/faces/id_name.json", "w"))
-            # todo 重新训练人脸分类器
-            self.train_face_recognizer()
-            # 重新加载人脸分类器
-            self.video_capture_thread.reload_face_recognizer()
             dir_flag = True
+        feature_flag = False
+        with open("resourses/dataset/faces/id_name.json","r") as f:
+            face_id_name = json.load(f)
+        if id in face_id_name:
+            del face_id_name[id]
+            feature_flag = True
+        with open("resourses/dataset/faces/id_name.json","w") as f:
+            json.dump(face_id_name, f,ensure_ascii=False)
         count = 0
-        if not os.path.exists(face_data_dir) or dir_flag:
+        if not os.path.exists(face_data_dir) or (dir_flag and feature_flag):
             result, count = sqlExecute(delete_teacher_byId_sql(id))
 
         if count > 0:
             QMessageBox.information(self, '删除成功', '删除成功')
+            self.video_capture_thread.reload_face_id_name()
+
+    # 人脸录入界面新增按钮
+    def on_pushButton_25_pressed(self):
+        id = self.ui.lineEdit_6.text()
+        name = self.ui.lineEdit_7.text()
+        photo = self.ui.label_14.pixmap()
+        position = self.ui.comboBox_4.currentText()
+        gender = ''
+        if self.ui.radioButton.isChecked():
+            gender = '男'
+        else:
+            gender = '女'
+        age = self.ui.lineEdit_8.text()
+        phone = self.ui.lineEdit_9.text()
+        college = self.ui.comboBox_3.currentText()
+        research = self.ui.lineEdit_10.text()
+        if id is None or id.strip() == "" or name is None or name.strip() == "" or photo is None or \
+                position is None or position.strip() == "" or age is None or age.strip() == "" or phone is None or \
+                phone.strip() == "" or college is None or college.strip() == "" or research is None or \
+                research.strip() == "":
+            QMessageBox.warning(self, '信息错误', '教师信息不能为空')
+            return
+        result = sqlExecute(query_teacher_byId_sql(id))[0]
+        if len(result) > 0:
+            QMessageBox.warning(self, '编号错误', '编号已存在')
+            return
+        photo_byte_array = QByteArray()
+        buffer = QBuffer(photo_byte_array)
+        buffer.open(QIODevice.OpenModeFlag.WriteOnly)
+        photo.save(buffer, "PNG")
+        buffer.close()
+        college_id = sqlExecute(query_collegeId_byname_sql(college))[0][0][0]
+        sql = "INSERT INTO teacher(teacher_id, name, position, photo, gender, age, phone, department_id, research_area) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
+        values = (id, name, position, bytes(photo_byte_array), gender, age, phone, college_id, research)
+        result,count = sqlExecute(sql,values)
+        if count > 0:
+            QMessageBox.information(self, '新增成功', '新增成功')
+            self.initTeacherTable()
+
 
     def face_capture(self,face):
         self.face_list.append(face)
